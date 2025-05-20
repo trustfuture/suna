@@ -77,7 +77,28 @@ async def run_agent(
 
     # Only include sample response if the model name does not contain "anthropic"
     if "anthropic" not in model_name.lower():
-        sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
+        # Check thread messages to see if user is requesting data insights presentation
+        is_data_insights_request = False
+        try:
+            # Get recent messages to detect data insights presentation requests
+            recent_messages = await client.table('messages').select('content').eq('thread_id', thread_id).eq('type', 'user').order('created_at', desc=True).limit(3).execute()
+            if recent_messages.data and len(recent_messages.data) > 0:
+                for msg in recent_messages.data:
+                    content = msg.get('content', '')
+                    if isinstance(content, str):
+                        # 检查是否包含数据洞察演示文稿、数据分析幻灯片等关键词
+                        if any(keyword in content.lower() for keyword in ['数据洞察', '数据分析幻灯片', '数据可视化演示', 'data insights', 'data presentation', 'data visualization slides']):
+                            is_data_insights_request = True
+                            break
+        except Exception as e:
+            logger.error(f"Error checking for data insights request: {e}")
+        
+        # Select appropriate sample response based on user request
+        if is_data_insights_request:
+            sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/data_insights_sample.txt')
+        else:
+            sample_response_path = os.path.join(os.path.dirname(__file__), 'sample_responses/1.txt')
+            
         with open(sample_response_path, 'r') as file:
             sample_response = file.read()
         
